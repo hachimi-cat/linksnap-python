@@ -1,6 +1,6 @@
 """Typed HTTP client for LinkSnap.
 
-Bearer auth, proactive refresh (~5min before expiry), reactive single
+Bearer auth (an API key as ``ApiKey <key>``), proactive refresh (~5min before expiry), reactive single
 retry on 401 with refresh in between, envelope unwrap (Forjio
 data/error/meta shape), auto-pagination.
 
@@ -17,6 +17,12 @@ import httpx
 
 from .errors import LinkSnapError, NetworkError
 from .session import Session
+
+
+def authorization_header(token: str) -> str:
+    """A LinkSnap API key (``lsk_live_…`` / ``lsk_test_…``) goes as ``ApiKey <key>``, which
+    is what the server reads; a session / OIDC access token as ``Bearer <token>``."""
+    return f"ApiKey {token}" if token.startswith("lsk_") else f"Bearer {token}"
 
 
 class ApiClient:
@@ -143,7 +149,7 @@ class ApiClient:
             h.update(headers)
         token = auth_token or (self.session.data.access_token if (self.session and self.session.data) else None)
         if token:
-            h["authorization"] = f"Bearer {token}"
+            h["authorization"] = authorization_header(token)
         kwargs: Dict[str, Any] = {"params": merged_q or None, "headers": h}
         if body is not None:
             h.setdefault("content-type", "application/json")

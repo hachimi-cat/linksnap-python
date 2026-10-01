@@ -8,17 +8,19 @@ Auth model (mirrors the Node SDK):
 
 - Pass `session=` (a `Session` from this SDK) and the client will attach
   the session's bearer token to every request and refresh as needed.
-- Pass `api_key=` to attach a static bearer (e.g. CI / headless runs).
+- Pass `api_key=` (the workspace's `lsk_live_…` key; CI / headless runs) and every
+  request carries `Authorization: ApiKey <key>`.
 - Pass `auth_token=` on a single call to override either of the above.
 """
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 import httpx
 
-from .http_client import ApiClient
+from .api_generated import GeneratedApi
+from .http_client import ApiClient, authorization_header
 from .resources import (
     AccountResources,
     ApiKeysResources,
@@ -32,6 +34,22 @@ from .resources import (
     build_resources,
 )
 from .session import Session
+
+
+class LinkSnapApi(GeneratedApi):
+    """``client.api``: every feature route, one method each (``api_generated.py``,
+    generated from the API spec) — and, as before, the underlying ``ApiClient``'s own
+    ``get`` / ``post`` / ``patch`` / ``put`` / ``delete`` / ``paginate``
+    (``client.api.get("/api/v1/...")``), which the docs offer as the escape hatch."""
+
+    def __init__(self, client: "LinkSnapClient", http_api: ApiClient) -> None:
+        super().__init__(client)
+        self._http_api = http_api
+
+    def __getattr__(self, name: str) -> Any:
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return getattr(self._http_api, name)
 
 
 class LinkSnapClient:
@@ -63,9 +81,19 @@ class LinkSnapClient:
         self.base_url = base_url.rstrip("/")
         self._http = http or httpx.Client(timeout=10.0)
         self._owns_http = http is None
-        self.api = ApiClient(base_url=self.base_url, session=session, http=self._http)
+        # A key is the credential for every call (the raw verbs of client.api included) and
+        # takes precedence over a session.
+        self._api_client = ApiClient(
+            base_url=self.base_url,
+            session=None if api_key else session,
+            http=self._http,
+            default_headers={"authorization": authorization_header(api_key)} if api_key else None,
+        )
         self._api_key = api_key
-        resources = build_resources(self.api, default_token=api_key)
+        # Every feature route, one method each (generated from the API spec), plus the
+        # raw HTTP verbs client.api always had.
+        self.api = LinkSnapApi(self, self._api_client)
+        resources = build_resources(self._api_client, default_token=api_key)
         self.links = resources["links"]  # type: ignore[assignment]
         self.stats = resources["stats"]  # type: ignore[assignment]
         self.qr = resources["qr"]  # type: ignore[assignment]
@@ -89,4 +117,24 @@ class LinkSnapClient:
     # ─── Health (no auth) ────────────────────────────────────────────────
 
     def health(self) -> Any:
-        return self.api.get("/api/v1/health")
+        return self._api_client.get("/api/v1/health")
+
+    # ─── Generated routes ─────────────────────────────────────────────────
+
+    def _apigen_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        query: Optional[Dict[str, Any]] = None,
+        body: Any = None,
+    ) -> Any:
+        """The call behind ``client.api.<area>_<action>(...)`` (api_generated.py): the
+        same ApiClient and credentials (session, or the constructor's ``api_key``) as
+        every resource method."""
+        verb = method.upper()
+        if verb in ("POST", "PATCH", "PUT"):
+            return getattr(self._api_client, verb.lower())(path, body, query=query, auth_token=self._api_key or None)
+        if verb in ("GET", "DELETE"):
+            return getattr(self._api_client, verb.lower())(path, query=query, auth_token=self._api_key or None)
+        raise ValueError(f"unsupported method {method}")

@@ -19,7 +19,7 @@ pip install forjio-linksnap
 from forjio_linksnap import LinkSnapClient
 
 # Static API key (CI / headless):
-ls = LinkSnapClient(api_key="lk_live_...")
+ls = LinkSnapClient(api_key="lsk_live_...")
 link = ls.links.create({"url": "https://example.com/long/path", "slug": "promo"})
 print(link["id"], link["slug"])
 

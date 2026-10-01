@@ -163,7 +163,7 @@ class BillingResources(_Namespace):
 
     def checkout(self, plan_id: str, *, auth_token: Optional[str] = None):
         return self.api.post(
-            "/api/v1/billing/checkout", {"planId": plan_id}, **_opts(self._t(auth_token))
+            "/api/v1/billing/checkout", {"plan": plan_id}, **_opts(self._t(auth_token))
         )
 
     def cancel(self, *, auth_token: Optional[str] = None):
@@ -171,7 +171,7 @@ class BillingResources(_Namespace):
 
     def downgrade(self, plan_id: str, *, auth_token: Optional[str] = None):
         return self.api.post(
-            "/api/v1/billing/downgrade", {"planId": plan_id}, **_opts(self._t(auth_token))
+            "/api/v1/billing/downgrade", {"plan": plan_id}, **_opts(self._t(auth_token))
         )
 
 

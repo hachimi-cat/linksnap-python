@@ -129,7 +129,7 @@ def test_billing_checkout_posts():
     client, captured = _make_client()
     client.billing.checkout("pro")
     assert "/api/v1/billing/checkout" in captured[0]["url"]
-    assert json.loads(captured[0]["body"]) == {"planId": "pro"}
+    assert json.loads(captured[0]["body"]) == {"plan": "pro"}
 
 
 def test_workspace_members_add_posts():
@@ -174,6 +174,21 @@ def test_attaches_bearer_from_api_key_constructor_opt():
     client, captured = _make_client(api_key="lk_test")
     client.links.list()
     assert captured[0]["headers"]["authorization"] == "Bearer lk_test"
+
+
+def test_an_api_key_goes_as_apikey_which_the_server_reads():
+    client, captured = _make_client(api_key="lsk_live_abc")
+    client.links.list()
+    client.api.tags_list()
+    client.api.get("/api/v1/domains")
+    assert [c["headers"]["authorization"] for c in captured] == ["ApiKey lsk_live_abc"] * 3
+
+
+def test_a_per_call_key_goes_as_apikey_and_an_access_token_as_bearer():
+    client, captured = _make_client(api_key="lsk_live_abc")
+    client.links.list(auth_token="lsk_test_xyz")
+    client.links.list(auth_token="eyJhbGciOi.jwt")
+    assert [c["headers"]["authorization"] for c in captured] == ["ApiKey lsk_test_xyz", "Bearer eyJhbGciOi.jwt"]
 
 
 def test_per_call_auth_token_overrides_constructor_key():
