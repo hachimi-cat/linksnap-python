@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.0
+- File uploads: `client.api.qr_codes_upload_logo(logo=...)` sends the logo as `multipart/form-data` (it was generated with no input and could not upload anything), with the client's credential, and returns `{"logoData": ...}`. `logo` is a binary file object, bytes, or a `(filename, content[, content_type])` tuple; a part without a type is typed from its file name, which the API checks (PNG, JPEG or SVG). The file is read once, so a retry sends the same bytes.
+
 ## 0.2.0
 - The API key goes as `Authorization: ApiKey <key>`, which is what the LinkSnap API reads (it was sent as `Bearer`). A per-call `auth_token` that is an `lsk_…` key goes the same way; a session or access token stays `Bearer`. The key now also applies to the raw verbs (`client.api.get(...)`) and takes precedence over a `session`.
 - `billing.checkout` / `billing.downgrade` send the plan as `plan`, the field the API reads (they sent `planId`).

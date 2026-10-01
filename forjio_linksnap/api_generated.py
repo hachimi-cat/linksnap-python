@@ -20,6 +20,11 @@ class GeneratedApi:
         query = {k: v for k, v in query.items() if v is not None}
         return self._client._apigen_request(method, path, query=query or None, body=body)
 
+    # A file upload: the form fields and the files, sent by the client as multipart/form-data.
+    def _call_form(self, method: str, path: str, query: Dict[str, Any], form: Dict[str, Any], files: Dict[str, Any]) -> Any:
+        query = {k: v for k, v in query.items() if v is not None}
+        return self._client._apigen_request(method, path, query=query or None, form=form, files=files)
+
     def audit_log_list(self, *, action: Optional[Any] = None, cursor: Optional[Any] = None, limit: Optional[Any] = None) -> Any:
         """List audit log (GET /api/v1/audit-log)."""
         return self._call("GET", f"/api/v1/audit-log", {"action": action, "cursor": cursor, "limit": limit}, None)
@@ -251,9 +256,15 @@ class GeneratedApi:
             payload["url"] = url
         return self._call("PATCH", f"/api/v1/qr-codes/{_q(id_)}", {}, payload)
 
-    def qr_codes_upload_logo(self) -> Any:
-        """Upload logo for QR code center — PRO and BUSINESS only (POST /api/v1/qr-codes/upload-logo)."""
-        return self._call("POST", f"/api/v1/qr-codes/upload-logo", {}, None)
+    def qr_codes_upload_logo(self, *, logo: Any) -> Any:
+        """Upload a logo for the QR code's center (on plans with qrLogoEnabled — every plan today) (POST /api/v1/qr-codes/upload-logo).
+        
+        Sent as multipart/form-data. A file is bytes, a binary file object, or a
+        (filename, content[, content_type]) tuple; the other fields are keyword arguments."""
+        _form: Dict[str, Any] = {}
+        _files: Dict[str, Any] = {}
+        _files["logo"] = logo
+        return self._call_form("POST", f"/api/v1/qr-codes/upload-logo", {}, _form, _files)
 
     def tags_create(self, *, name: Optional[Any] = None, json_body: Optional[Dict[str, Any]] = None) -> Any:
         """Create tag (POST /api/v1/tags).

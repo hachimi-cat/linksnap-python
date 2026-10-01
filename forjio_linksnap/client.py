@@ -128,11 +128,18 @@ class LinkSnapClient:
         *,
         query: Optional[Dict[str, Any]] = None,
         body: Any = None,
+        form: Optional[Dict[str, Any]] = None,
+        files: Optional[Dict[str, Any]] = None,
     ) -> Any:
         """The call behind ``client.api.<area>_<action>(...)`` (api_generated.py): the
         same ApiClient and credentials (session, or the constructor's ``api_key``) as
-        every resource method."""
+        every resource method. A file upload (``form=`` / ``files=``) is sent as
+        multipart/form-data."""
         verb = method.upper()
+        if form is not None or files is not None:
+            return self._api_client._request(
+                verb, path, None, query=query, headers=None, auth_token=self._api_key or None, form=form, files=files
+            )
         if verb in ("POST", "PATCH", "PUT"):
             return getattr(self._api_client, verb.lower())(path, body, query=query, auth_token=self._api_key or None)
         if verb in ("GET", "DELETE"):

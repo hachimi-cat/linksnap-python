@@ -10,7 +10,9 @@ SDK so consumers get identical semantics across the Forjio family.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterator, Optional
+import mimetypes
+import os
+from typing import Any, Dict, Iterator, Mapping, Optional, Tuple
 from urllib.parse import urlparse
 
 import httpx
@@ -104,26 +106,36 @@ class ApiClient:
         query: Optional[Dict[str, Any]],
         headers: Optional[Dict[str, str]],
         auth_token: Optional[str],
+        form: Optional[Mapping[str, Any]] = None,
+        files: Optional[Mapping[str, Any]] = None,
     ) -> Any:
+        """``body`` is sent as JSON; ``form`` fields and ``files`` (a file upload) as
+        multipart/form-data. Each file is read once, so a retry sends the same bytes."""
+        multipart = None
+        if form is not None or files is not None:
+            multipart = (
+                {k: v if isinstance(v, str) else _form_value(v) for k, v in (form or {}).items() if v is not None},
+                {k: _file_part(k, v) for k, v in (files or {}).items() if v is not None},
+            )
         # Proactive refresh
         if self.session is not None and auth_token is None and self.session.will_expire_soon(self.refresh_buffer_sec):
             try:
                 self.session.refresh()
             except Exception:
                 pass
-        res = self._send(method, path, body, query=query, headers=headers, auth_token=auth_token)
+        res = self._send(method, path, body, query=query, headers=headers, auth_token=auth_token, multipart=multipart)
         # Reactive single 401 retry
         if res.status_code == 401 and self.session is not None and auth_token is None:
             try:
                 self.session.refresh()
-                res = self._send(method, path, body, query=query, headers=headers, auth_token=auth_token)
+                res = self._send(method, path, body, query=query, headers=headers, auth_token=auth_token, multipart=multipart)
             except Exception:
                 pass
         # 5xx retry
         retries_left = self.retry_on_5xx
         while res.status_code >= 500 and retries_left > 0:
             retries_left -= 1
-            res = self._send(method, path, body, query=query, headers=headers, auth_token=auth_token)
+            res = self._send(method, path, body, query=query, headers=headers, auth_token=auth_token, multipart=multipart)
         return self._unwrap(res)
 
     def _send(
@@ -135,6 +147,7 @@ class ApiClient:
         query: Optional[Dict[str, Any]],
         headers: Optional[Dict[str, str]],
         auth_token: Optional[str],
+        multipart: Optional[Tuple[Dict[str, str], Dict[str, Tuple[str, bytes, str]]]] = None,
     ) -> httpx.Response:
         if urlparse(path).scheme:
             url = path
@@ -151,7 +164,12 @@ class ApiClient:
         if token:
             h["authorization"] = authorization_header(token)
         kwargs: Dict[str, Any] = {"params": merged_q or None, "headers": h}
-        if body is not None:
+        if multipart is not None:
+            # httpx writes the multipart body and its Content-Type (with the boundary)
+            h.pop("content-type", None)
+            kwargs["data"] = multipart[0] or None
+            kwargs["files"] = multipart[1]
+        elif body is not None:
             h.setdefault("content-type", "application/json")
             kwargs["json"] = body
         try:
@@ -186,6 +204,40 @@ class ApiClient:
             message = (err_obj or {}).get("message", res.reason_phrase) if isinstance(err_obj, dict) else res.reason_phrase
             raise LinkSnapError(code, message, res.status_code, details=parsed if isinstance(parsed, dict) else None)
         return parsed
+
+
+def _form_value(value: Any) -> str:
+    import json
+
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    return json.dumps(value, separators=(",", ":"))
+
+
+def _file_part(field: str, value: Any) -> Tuple[str, bytes, str]:
+    """A file as httpx sends it: (filename, content, content type). ``value`` is bytes, a
+    binary file object, or a (filename, content[, content_type]) tuple. A part without a
+    type gets one from its file name — the server takes a file by its declared type (the
+    QR logo: PNG, JPEG or SVG only)."""
+    name: Optional[str] = None
+    content_type: Optional[str] = None
+    if isinstance(value, tuple):
+        name = value[0]
+        content = value[1]
+        content_type = value[2] if len(value) > 2 else None
+    else:
+        content = value
+    if hasattr(content, "read"):
+        if name is None:
+            name = os.path.basename(str(getattr(content, "name", "") or "")) or None
+        content = content.read()
+    if isinstance(content, str):
+        content = content.encode("utf-8")
+    name = name or field
+    content_type = content_type or mimetypes.guess_type(name)[0] or "application/octet-stream"
+    return (name, bytes(content), content_type)
 
 
 def _extract_items(page: Any) -> Iterator[Any]:
