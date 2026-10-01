@@ -56,4 +56,4 @@ __all__ = [
     "Session",
 ]
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"

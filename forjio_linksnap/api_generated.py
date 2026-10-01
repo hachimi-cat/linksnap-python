@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 
 class GeneratedApi:
-    """All 52 feature routes of the LinkSnap API."""
+    """All 56 feature routes of the LinkSnap API."""
 
     def __init__(self, client: Any) -> None:
         self._client = client
@@ -306,6 +306,22 @@ class GeneratedApi:
     def webhooks_delete(self, id_: str) -> Any:
         """Remove endpoint. (DELETE /api/v1/webhooks/{id})."""
         return self._call("DELETE", f"/api/v1/webhooks/{_q(id_)}", {}, None)
+
+    def webhooks_deliveries(self, *, cursor: Optional[Any] = None, limit: Optional[Any] = None, status: Optional[Any] = None, subscription_id: Optional[Any] = None, type_: Optional[Any] = None) -> Any:
+        """List webhook deliveries. (GET /api/v1/webhooks/deliveries)."""
+        return self._call("GET", f"/api/v1/webhooks/deliveries", {"cursor": cursor, "limit": limit, "status": status, "subscriptionId": subscription_id, "type": type_}, None)
+
+    def webhooks_deliveries_retry(self, id_: str) -> Any:
+        """Retry a webhook delivery. (POST /api/v1/webhooks/deliveries/{id}/retry)."""
+        return self._call("POST", f"/api/v1/webhooks/deliveries/{_q(id_)}/retry", {}, None)
+
+    def webhooks_event_types(self) -> Any:
+        """The event catalogue: every type LinkSnap sends, with what fires it — the dashboard's event picker renders from this. (GET /api/v1/webhooks/event-types)."""
+        return self._call("GET", f"/api/v1/webhooks/event-types", {}, None)
+
+    def webhooks_get_deliveries(self, id_: str) -> Any:
+        """Get a webhook delivery, with every attempt made at it. (GET /api/v1/webhooks/deliveries/{id})."""
+        return self._call("GET", f"/api/v1/webhooks/deliveries/{_q(id_)}", {}, None)
 
     def webhooks_list(self) -> Any:
         """List endpoints (never includes the secret). (GET /api/v1/webhooks)."""

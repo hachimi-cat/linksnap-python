@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.0
+- `client.api`: the webhook delivery log — `webhooks_deliveries(subscription_id=, status=, type_=, limit=, cursor=)`, `webhooks_get_deliveries(id_)` (with every attempt), `webhooks_deliveries_retry(id_)` — and `webhooks_event_types()` (the event catalog). LinkSnap now retries a failed delivery 1 min, 5 min, 25 min, 2 h and 12 h later and switches off an endpoint that keeps failing for a day; endpoints carry `consecutiveFailures`, `failingSince`, `disabledAt`, `disabledReason`, and `events` takes prefixes (`linksnap.link.*`).
+
 ## 0.3.0
 - File uploads: `client.api.qr_codes_upload_logo(logo=...)` sends the logo as `multipart/form-data` (it was generated with no input and could not upload anything), with the client's credential, and returns `{"logoData": ...}`. `logo` is a binary file object, bytes, or a `(filename, content[, content_type])` tuple; a part without a type is typed from its file name, which the API checks (PNG, JPEG or SVG). The file is read once, so a retry sends the same bytes.
 
